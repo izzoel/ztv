@@ -8,26 +8,30 @@ import { bunny } from 'laravel-vite-plugin/fonts';
 import { defineConfig, lazyPlugins } from 'vite-plus';
 
 export default defineConfig({
-    plugins: lazyPlugins(() => [
-        laravel({
-            input: ['resources/css/app.css', 'resources/js/app.tsx'],
-            refresh: true,
-            fonts: [
-                bunny('Instrument Sans', {
-                    weights: [400, 500, 600],
+    plugins: lazyPlugins(() =>
+        [
+            laravel({
+                input: ['resources/css/app.css', 'resources/js/app.tsx'],
+                refresh: true,
+                fonts: [
+                    bunny('Instrument Sans', {
+                        weights: [400, 500, 600],
+                    }),
+                ],
+            }),
+            inertia(),
+            react(),
+            babel({
+                presets: [reactCompilerPreset()],
+            }),
+            tailwindcss(),
+            !process.env.VERCEL &&
+                !process.env.SKIP_WAYFINDER &&
+                wayfinder({
+                    formVariants: true,
                 }),
-            ],
-        }),
-        inertia(),
-        react(),
-        babel({
-            presets: [reactCompilerPreset()],
-        }),
-        tailwindcss(),
-        wayfinder({
-            formVariants: true,
-        }),
-    ]),
+        ].filter(Boolean)
+    ),
     server: {
         watch: {
             ignored: [
