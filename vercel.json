@@ -31,6 +31,7 @@
     "env": {
         "APP_ENV": "production",
         "APP_DEBUG": "false",
+        "APP_URL": "https://ztv-sigma.vercel.app",
         "APP_KEY": "base64:rvJyLb2SwzWJvf7E7eGZawGMjl5OpDmnkFMfVxUTzSk=",
         "APP_CONFIG_CACHE": "/tmp/config.php",
         "APP_EVENTS_CACHE": "/tmp/events.php",
