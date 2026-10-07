@@ -3,7 +3,7 @@
  * Fetches real movies, backdrops, posters, ratings & metadata using TMDB API Read Access Token.
  */
 
-import { MediaItem } from '@/data/movies';
+import { MediaItem, Episode } from '@/data/movies';
 
 export const TMDB_READ_TOKEN =
     'eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJhZjNiOGQ3ZTAyZGViZjMzMDJkZTkyNzM2M2Y5MDVhNSIsIm5iZiI6MTc5MTMxNjg4Ny40MjUsInN1YiI6IjZhYzU1Mzk3N2ZhZGRlYzkyZGJiYzM2ZiIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.1QPNbFQVmR2xtf4vAh0Cb0I0XfuEM2uyQo0ksHE0NTs';
@@ -12,25 +12,35 @@ const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
 const TMDB_IMG_POSTER = 'https://image.tmdb.org/t/p/w500';
 const TMDB_IMG_BACKDROP = 'https://image.tmdb.org/t/p/w1280';
 
-// Genre ID map
+/// Genre ID map according to official TMDB specifications
 const GENRE_MAP: Record<number, string> = {
     28: 'Aksi',
     12: 'Petualangan',
-    16: 'Anime',
+    16: 'Anime & Animasi',
     35: 'Komedi',
-    80: 'Misteri',
+    80: 'Kriminal',
     99: 'Dokumenter',
-    18: 'Drama Indonesia',
+    18: 'Drama',
     10751: 'Keluarga',
-    14: 'Petualangan',
+    14: 'Petualangan & Fantasi',
     36: 'Sejarah',
     27: 'Horor & Misteri',
+    10402: 'Musik',
     9648: 'Horor & Misteri',
-    10749: 'Drama Indonesia',
+    10749: 'Romantis',
     878: 'Aksi & Sci-Fi',
+    10770: 'Film TV',
     53: 'Horor & Misteri',
+    10752: 'Perang',
+    37: 'Western',
     10759: 'Aksi & Sci-Fi',
+    10762: 'Anak-anak',
+    10763: 'Berita',
+    10764: 'Reality',
     10765: 'Aksi & Sci-Fi',
+    10766: 'Drama',
+    10767: 'Talkshow',
+    10768: 'Perang & Politik',
 };
 
 /**
@@ -74,8 +84,13 @@ export function formatTmdbItemToMedia(item: any, forceType?: 'movie' | 'series',
     const releaseDate = item.release_date || item.first_air_date || '2025-01-01';
     const year = parseInt(releaseDate.split('-')[0]) || 2025;
     
-    // Map genres
+    // Map genres directly from genre_ids or genre objects
     const genreNames: string[] = [];
+    if (item.genres && Array.isArray(item.genres)) {
+        item.genres.forEach((g: any) => {
+            if (g.name && !genreNames.includes(g.name)) genreNames.push(g.name);
+        });
+    }
     if (item.genre_ids && Array.isArray(item.genre_ids)) {
         item.genre_ids.forEach((gid: number) => {
             if (GENRE_MAP[gid] && !genreNames.includes(GENRE_MAP[gid])) {
@@ -84,7 +99,7 @@ export function formatTmdbItemToMedia(item: any, forceType?: 'movie' | 'series',
         });
     }
     if (genreNames.length === 0) {
-        genreNames.push(isMovie ? 'Aksi & Sci-Fi' : 'Drama Indonesia');
+        genreNames.push(isMovie ? 'Aksi & Sci-Fi' : 'Drama');
     }
 
     const voteAvg = item.vote_average ? item.vote_average.toFixed(1) : '8.5';
@@ -113,8 +128,8 @@ export function formatTmdbItemToMedia(item: any, forceType?: 'movie' | 'series',
         synopsis: item.overview && item.overview.trim().length > 10
             ? item.overview
             : `Menampilkan alur cerita seru nan memukau. Nikmati tayangan ${title} dengan kualitas video streaming jernih dari server ZTV.`,
-        cast: ['Aktor Utama TMDB', 'Pemeran Pendukung'],
-        director: 'Sutradara TMDB',
+        cast: [],
+        director: '',
         posterUrl: posterUrl,
         backdropUrl: backdropUrl,
         videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4',
@@ -220,4 +235,122 @@ export async function fetchLiveTmdbCatalog(): Promise<{
         series: popularTv.length > 0 ? popularTv : [],
         all: all.length > 0 ? all : [],
     };
+}
+
+/**
+ * Fetch paginated content for Infinite Scroll (Movie & Series)
+ */
+export async function fetchMoreTmdbContent(
+    type: 'movie' | 'series',
+    page: number
+): Promise<MediaItem[]> {
+    try {
+        const endpoint = type === 'movie' ? '/movie/popular' : '/tv/popular';
+        const res = await fetchFromTmdb(endpoint, { page: String(page) });
+        if (!res || !res.results || !Array.isArray(res.results)) return [];
+        return res.results
+            .map((item: any) => formatTmdbItemToMedia(item, type, type === 'series'))
+            .filter((item: MediaItem | null): item is MediaItem => item !== null);
+    } catch {
+        return [];
+    }
+}
+
+/**
+ * Fetch real Cast & Director details for a specific movie or series from TMDB API
+ */
+export async function fetchTmdbCredits(
+    tmdbId: number | string,
+    type: 'movie' | 'series'
+): Promise<{ cast: string[]; director: string }> {
+    if (!tmdbId) return { cast: [], director: '' };
+    try {
+        const endpoint = type === 'movie' ? `/movie/${tmdbId}/credits` : `/tv/${tmdbId}/credits`;
+        const res = await fetchFromTmdb(endpoint);
+        if (!res) return { cast: [], director: '' };
+
+        const castNames: string[] = res.cast && Array.isArray(res.cast)
+            ? res.cast.slice(0, 5).map((c: any) => c.name)
+            : [];
+
+        let directorName = '';
+        if (res.crew && Array.isArray(res.crew)) {
+            const dirObj = res.crew.find((c: any) => c.job === 'Director' || c.known_for_department === 'Directing');
+            if (dirObj) {
+                directorName = dirObj.name;
+            }
+        }
+        if (!directorName && res.cast && res.cast.length > 0) {
+            // For series, creators are sometimes listed under created_by, or first cast lead
+            const createdObj = res.crew?.find((c: any) => c.job === 'Executive Producer' || c.job === 'Producer');
+            if (createdObj) {
+                directorName = createdObj.name;
+            } else {
+                directorName = res.cast[0].name;
+            }
+        }
+
+        return {
+            cast: castNames,
+            director: directorName || 'Sutradara Utama'
+        };
+    } catch {
+        return { cast: [], director: '' };
+    }
+}
+
+/**
+ * Fetch real TV Series Season Episode details live from TMDB API
+ */
+export async function fetchTmdbEpisodes(
+    tmdbId: number | string,
+    seasonNumber: number = 1
+): Promise<Episode[]> {
+    if (!tmdbId) return [];
+    try {
+        const res = await fetchFromTmdb(`/tv/${tmdbId}/season/${seasonNumber}`);
+        if (!res || !res.episodes || !Array.isArray(res.episodes)) return [];
+
+        return res.episodes.map((ep: any) => ({
+            id: `ep-${ep.id || ep.episode_number}-${tmdbId}`,
+            episodeNumber: ep.episode_number || 1,
+            title: ep.name ? `Eps ${ep.episode_number}: ${ep.name}` : `Episode ${ep.episode_number}`,
+            duration: ep.runtime ? `${ep.runtime}m` : '45m',
+            thumbnail: ep.still_path
+                ? `${TMDB_IMG_POSTER}${ep.still_path}`
+                : 'https://images.unsplash.com/photo-1534447677768-be436bb09401?q=80&w=1000&auto=format&fit=crop',
+            synopsis: ep.overview && ep.overview.trim().length > 5
+                ? ep.overview
+                : 'Sinopsis belum tersedia'
+        }));
+    } catch {
+        return [];
+    }
+}
+
+/**
+ * Fetch real TV Series Season list & metadata from TMDB API
+ */
+export async function fetchTmdbTvSeasons(
+    tmdbId: number | string
+): Promise<{ seasonNumber: number; name: string; episodeCount: number }[]> {
+    if (!tmdbId) return [{ seasonNumber: 1, name: 'Musim 1', episodeCount: 10 }];
+    try {
+        const res = await fetchFromTmdb(`/tv/${tmdbId}`);
+        if (!res || !res.seasons || !Array.isArray(res.seasons)) {
+            return [{ seasonNumber: 1, name: 'Musim 1', episodeCount: 10 }];
+        }
+
+        const filtered = res.seasons
+            .filter((s: any) => s.season_number > 0) // Exclude Specials (Season 0)
+            .map((s: any) => ({
+                seasonNumber: s.season_number,
+                name: s.name || `Musim ${s.season_number}`,
+                episodeCount: s.episode_count || 10,
+            }));
+
+        return filtered.length > 0 ? filtered : [{ seasonNumber: 1, name: 'Musim 1', episodeCount: 10 }];
+    } catch {
+        return [{ seasonNumber: 1, name: 'Musim 1', episodeCount: 10 }];
+    }
 }

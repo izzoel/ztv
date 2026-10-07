@@ -3,15 +3,23 @@ import {
     Play, Pause, RotateCcw, RotateCw, Volume2, VolumeX, Maximize, X, 
     MessageSquare, Sparkles, Server, Tv, Search, Layers, RefreshCw, AlertCircle, Film
 } from 'lucide-react';
-import { MediaItem } from '@/data/movies';
+import { MediaItem, Episode } from '@/data/movies';
 import { PLAYER_SOURCES, getSourceUrl, getTmdbIdForMedia } from '@/lib/streambertApi';
+import { fetchTmdbEpisodes, fetchTmdbTvSeasons } from '@/lib/tmdbService';
 
 interface VideoPlayerModalProps {
     item: MediaItem | null;
     onClose: () => void;
+    initialEpisodeNumber?: number;
+    initialSeasonNumber?: number;
 }
 
-export default function VideoPlayerModal({ item, onClose }: VideoPlayerModalProps) {
+export default function VideoPlayerModal({
+    item,
+    onClose,
+    initialEpisodeNumber = 1,
+    initialSeasonNumber = 1
+}: VideoPlayerModalProps) {
     const videoRef = useRef<HTMLVideoElement>(null);
     const iframeRef = useRef<HTMLIFrameElement>(null);
     const frameContainerRef = useRef<HTMLDivElement>(null);
@@ -20,8 +28,10 @@ export default function VideoPlayerModal({ item, onClose }: VideoPlayerModalProp
     const [selectedSource, setSelectedSource] = useState<string>('vidsrc');
     const [useStreambertEmbed, setUseStreambertEmbed] = useState<boolean>(true);
     const [currentTmdbId, setCurrentTmdbId] = useState<string | number>('');
-    const [selectedSeason, setSelectedSeason] = useState<number>(1);
-    const [selectedEpisode, setSelectedEpisode] = useState<number>(1);
+    const [selectedSeason, setSelectedSeason] = useState<number>(initialSeasonNumber);
+    const [selectedEpisode, setSelectedEpisode] = useState<number>(initialEpisodeNumber);
+    const [liveSeasons, setLiveSeasons] = useState<{ seasonNumber: number; name: string; episodeCount: number }[]>([]);
+    const [liveEpisodes, setLiveEpisodes] = useState<Episode[]>([]);
     const [iframeLoading, setIframeLoading] = useState<boolean>(true);
     const [showSourceMenu, setShowSourceMenu] = useState<boolean>(false);
     const [showTmdbModal, setShowTmdbModal] = useState<boolean>(false);
@@ -43,9 +53,32 @@ export default function VideoPlayerModal({ item, onClose }: VideoPlayerModalProp
             const tmdb = getTmdbIdForMedia(item.id, item.tmdbId);
             setCurrentTmdbId(tmdb);
             setCustomTmdbInput(String(tmdb));
+            setSelectedEpisode(initialEpisodeNumber || 1);
+            setSelectedSeason(initialSeasonNumber || 1);
             setIframeLoading(true);
         }
-    }, [item]);
+    }, [item, initialEpisodeNumber, initialSeasonNumber]);
+
+    // Fetch live seasons & episodes when season or TMDB ID changes
+    useEffect(() => {
+        if (item?.type === 'series' && currentTmdbId) {
+            fetchTmdbTvSeasons(currentTmdbId).then((seasons) => {
+                if (seasons && seasons.length > 0) {
+                    setLiveSeasons(seasons);
+                }
+            });
+        }
+    }, [item, currentTmdbId]);
+
+    useEffect(() => {
+        if (item?.type === 'series' && currentTmdbId) {
+            fetchTmdbEpisodes(currentTmdbId, selectedSeason).then((eps) => {
+                if (eps && eps.length > 0) {
+                    setLiveEpisodes(eps);
+                }
+            });
+        }
+    }, [item, currentTmdbId, selectedSeason]);
 
     // Safety timeout timer for iframe server loading
     useEffect(() => {
@@ -178,35 +211,46 @@ export default function VideoPlayerModal({ item, onClose }: VideoPlayerModalProp
             >
                 
                 {/* 1. BINGKAI HEADER (HEADER DI ATAS VIDEO) */}
-                <div className="p-4 sm:p-5 bg-slate-900/90 border-b border-white/10 flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-3 min-w-0">
-                        <div className="p-2 rounded-xl bg-red-600/20 text-red-500 shrink-0">
-                            <Film className="w-5 h-5" />
-                        </div>
+                <div className="p-3 sm:p-5 bg-slate-900/90 border-b border-white/10 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                    <div className="flex items-center justify-between sm:justify-start gap-3 min-w-0">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="p-2 rounded-xl bg-red-600/20 text-red-500 shrink-0">
+                                <Film className="w-4 h-4 sm:w-5 sm:h-5" />
+                            </div>
 
-                        <div className="min-w-0">
-                            <div className="flex items-center gap-2">
-                                <h2 className="text-base sm:text-lg font-extrabold text-white truncate">
+                            <div className="min-w-0">
+                                <h2 className="text-sm sm:text-lg font-extrabold text-white truncate max-w-[180px] xs:max-w-[240px] sm:max-w-xs md:max-w-none">
                                     {item.title}
                                 </h2>
-                            </div>
 
-                            <div className="flex items-center gap-2 text-xs text-slate-300">
-                                <span className="text-emerald-400 font-semibold">{useStreambertEmbed ? activeSourceObj.label : 'Local MP4'}</span>
-                                <span>•</span>
-                                {item.type === 'series' && (
-                                    <span className="text-red-400 font-mono font-bold">
-                                        S{selectedSeason} : E{selectedEpisode}
-                                    </span>
-                                )}
-                                <span className="hidden sm:inline">•</span>
-                                <span className="hidden sm:inline text-slate-400">{item.genres.join(', ')}</span>
+                                <div className="flex items-center gap-1.5 sm:gap-2 text-[11px] sm:text-xs text-slate-300">
+                                    <span className="text-emerald-400 font-semibold">{useStreambertEmbed ? activeSourceObj.label : 'Local MP4'}</span>
+                                    <span>•</span>
+                                    {item.type === 'series' && (
+                                        <span className="text-red-400 font-mono font-bold">
+                                            S{selectedSeason} : E{selectedEpisode}
+                                        </span>
+                                    )}
+                                    <span className="hidden sm:inline">•</span>
+                                    <span className="hidden sm:inline text-slate-400 truncate max-w-[120px] md:max-w-none">{item.genres.join(', ')}</span>
+                                </div>
                             </div>
                         </div>
+
+                        {/* CLOSE BUTTON FOR SMALL MOBILE VIEW (Top right of title header) */}
+                        <button
+                            onClick={onClose}
+                            className="sm:hidden px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold transition flex items-center gap-1 cursor-pointer shadow-md shadow-red-600/30 shrink-0 active:scale-95"
+                            title="Tutup Player"
+                            aria-label="Tutup Player"
+                        >
+                            <X className="w-4 h-4" />
+                            <span>Tutup</span>
+                        </button>
                     </div>
 
                     {/* HEADER CONTROL BUTTONS (DI ATAS BINGKAI) */}
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 shrink-0 justify-between sm:justify-end border-t border-white/5 sm:border-0 pt-2 sm:pt-0">
                         {/* SERVER SELECTOR BUTTON */}
                         <div className="relative">
                             <button
@@ -215,15 +259,15 @@ export default function VideoPlayerModal({ item, onClose }: VideoPlayerModalProp
                                     setShowSubtitleMenu(false);
                                     setShowEpisodeMenu(false);
                                 }}
-                                className="px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-red-600/30 transition cursor-pointer"
+                                className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-red-600/30 transition cursor-pointer active:scale-95"
                             >
                                 <Server className="w-3.5 h-3.5" />
-                                <span className="hidden sm:inline">Server:</span> {activeSourceObj.label}
+                                <span>Server: {activeSourceObj.label}</span>
                             </button>
 
                             {/* SERVER DROPDOWN */}
                             {showSourceMenu && (
-                                <div className="absolute top-11 right-0 w-72 bg-slate-950 border border-white/20 rounded-2xl p-3 shadow-2xl z-40 text-xs space-y-2 backdrop-blur-2xl">
+                                <div className="absolute top-11 right-0 w-72 max-w-[calc(100vw-2rem)] bg-slate-950 border border-white/20 rounded-2xl p-3 shadow-2xl z-50 text-xs space-y-2 backdrop-blur-2xl">
                                     <div className="flex items-center justify-between border-b border-white/10 pb-2">
                                         <span className="font-bold text-white flex items-center gap-1.5">
                                             <Layers className="w-4 h-4 text-red-500" />
@@ -291,14 +335,14 @@ export default function VideoPlayerModal({ item, onClose }: VideoPlayerModalProp
                                         setShowSourceMenu(false);
                                         setShowSubtitleMenu(false);
                                     }}
-                                    className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
+                                    className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer active:scale-95"
                                 >
                                     <Tv className="w-3.5 h-3.5 text-red-500" />
                                     <span>S{selectedSeason} E{selectedEpisode}</span>
                                 </button>
 
                                 {showEpisodeMenu && (
-                                    <div className="absolute top-11 right-0 w-64 bg-slate-950 border border-white/20 rounded-2xl p-3 shadow-2xl z-40 text-xs space-y-2 backdrop-blur-2xl">
+                                    <div className="absolute top-11 right-0 w-64 max-w-[calc(100vw-2rem)] bg-slate-950 border border-white/20 rounded-2xl p-3 shadow-2xl z-50 text-xs space-y-2 backdrop-blur-2xl">
                                         <div className="flex items-center justify-between border-b border-white/10 pb-2">
                                             <span className="font-bold text-white">Pilih Musim & Episode</span>
                                         </div>
@@ -306,16 +350,25 @@ export default function VideoPlayerModal({ item, onClose }: VideoPlayerModalProp
                                         <div className="space-y-2">
                                             <div>
                                                 <span className="text-[10px] text-slate-400 block mb-1">Musim (Season):</span>
-                                                <div className="flex gap-1">
-                                                    {[1, 2, 3].map((s) => (
+                                                <div className="flex items-center gap-1 overflow-x-auto pb-1 no-scrollbar">
+                                                    {(liveSeasons.length > 0
+                                                        ? liveSeasons
+                                                        : [{ seasonNumber: 1, name: 'Musim 1', episodeCount: 10 }, { seasonNumber: 2, name: 'Musim 2', episodeCount: 10 }]
+                                                    ).map((s) => (
                                                         <button
-                                                            key={s}
-                                                            onClick={() => setSelectedSeason(s)}
-                                                            className={`flex-1 py-1 rounded-lg font-bold transition ${
-                                                                selectedSeason === s ? 'bg-red-600 text-white' : 'bg-white/10 text-slate-300'
+                                                            key={s.seasonNumber}
+                                                            onClick={() => {
+                                                                setSelectedSeason(s.seasonNumber);
+                                                                setSelectedEpisode(1);
+                                                                setIframeLoading(true);
+                                                            }}
+                                                            className={`px-3 py-1 rounded-lg font-bold transition text-xs shrink-0 ${
+                                                                selectedSeason === s.seasonNumber
+                                                                    ? 'bg-red-600 text-white shadow-md'
+                                                                    : 'bg-white/10 text-slate-300 hover:bg-white/20'
                                                             }`}
                                                         >
-                                                            Musim {s}
+                                                            {s.name || `Musim ${s.seasonNumber}`}
                                                         </button>
                                                     ))}
                                                 </div>
@@ -323,22 +376,31 @@ export default function VideoPlayerModal({ item, onClose }: VideoPlayerModalProp
 
                                             <div>
                                                 <span className="text-[10px] text-slate-400 block mb-1">Episode:</span>
-                                                <div className="grid grid-cols-4 gap-1 max-h-36 overflow-y-auto">
-                                                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 16, 24].map((ep) => (
-                                                        <button
-                                                            key={ep}
-                                                            onClick={() => {
-                                                                setSelectedEpisode(ep);
-                                                                setIframeLoading(true);
-                                                                setShowEpisodeMenu(false);
-                                                            }}
-                                                            className={`py-1 rounded-lg font-bold text-center transition ${
-                                                                selectedEpisode === ep ? 'bg-red-600 text-white' : 'bg-white/10 text-slate-300'
-                                                            }`}
-                                                        >
-                                                            Eps {ep}
-                                                        </button>
-                                                    ))}
+                                                <div className="grid grid-cols-4 gap-1 max-h-48 overflow-y-auto pr-1">
+                                                    {(liveEpisodes.length > 0
+                                                        ? liveEpisodes.map((ep) => ep.episodeNumber)
+                                                        : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+                                                    ).map((epNum) => {
+                                                        const epData = liveEpisodes.find((e) => e.episodeNumber === epNum);
+                                                        return (
+                                                            <button
+                                                                key={epNum}
+                                                                onClick={() => {
+                                                                    setSelectedEpisode(epNum);
+                                                                    setIframeLoading(true);
+                                                                    setShowEpisodeMenu(false);
+                                                                }}
+                                                                title={epData?.title || `Episode ${epNum}`}
+                                                                className={`py-1.5 rounded-lg font-bold text-center transition text-xs ${
+                                                                    selectedEpisode === epNum
+                                                                        ? 'bg-red-600 text-white shadow-md'
+                                                                        : 'bg-white/10 text-slate-300 hover:bg-white/20'
+                                                                }`}
+                                                            >
+                                                                Eps {epNum}
+                                                            </button>
+                                                        );
+                                                    })}
                                                 </div>
                                             </div>
                                         </div>
@@ -350,7 +412,7 @@ export default function VideoPlayerModal({ item, onClose }: VideoPlayerModalProp
                         {/* FULLSCREEN BUTTON IN HEADER */}
                         <button
                             onClick={toggleFullscreen}
-                            className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition cursor-pointer"
+                            className="p-1.5 sm:p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition cursor-pointer active:scale-95"
                             title="Layar Penuh Bingkai (F)"
                         >
                             <Maximize className="w-4 h-4" />
@@ -359,17 +421,18 @@ export default function VideoPlayerModal({ item, onClose }: VideoPlayerModalProp
                         {/* CUSTOM TMDB ID BUTTON */}
                         <button
                             onClick={() => setShowTmdbModal(true)}
-                            className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition cursor-pointer"
+                            className="p-1.5 sm:p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition cursor-pointer active:scale-95"
                             title="Ubah TMDB Stream ID"
                         >
                             <Search className="w-4 h-4" />
                         </button>
 
-                        {/* CLOSE BUTTON */}
+                        {/* CLOSE BUTTON FOR TABLET/DESKTOP */}
                         <button
                             onClick={onClose}
-                            className="px-3 py-1.5 rounded-xl bg-red-600/80 hover:bg-red-600 text-white text-xs font-bold transition flex items-center gap-1 cursor-pointer shadow-md"
+                            className="hidden sm:flex px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold transition items-center gap-1.5 cursor-pointer shadow-md shadow-red-600/30 active:scale-95"
                             title="Tutup Player (Esc)"
+                            aria-label="Tutup Player"
                         >
                             <X className="w-4 h-4" />
                             <span>Tutup</span>

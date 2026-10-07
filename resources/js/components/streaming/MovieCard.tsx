@@ -1,4 +1,4 @@
-import { Play, Plus, Check, Info, Star, Sparkles } from 'lucide-react';
+import { Play, Plus, Check, Star } from 'lucide-react';
 import { MediaItem } from '@/data/movies';
 
 interface MovieCardProps {
@@ -19,7 +19,10 @@ export default function MovieCard({
     showProgress = false
 }: MovieCardProps) {
     return (
-        <div className="group relative flex-none w-48 sm:w-56 md:w-64 rounded-2xl overflow-hidden bg-slate-900 border border-white/10 shadow-xl transition-all duration-300 hover:scale-105 hover:z-30 hover:shadow-2xl hover:shadow-red-950/50 cursor-pointer">
+        <div 
+            onClick={() => onOpenDetail(item)}
+            className="group relative flex-none w-48 sm:w-56 md:w-64 rounded-2xl overflow-hidden bg-slate-900 border border-white/10 shadow-xl transition-all duration-300 hover:scale-105 hover:z-30 hover:shadow-2xl hover:shadow-red-950/50 cursor-pointer"
+        >
             {/* Poster Thumbnail */}
             <div className="relative aspect-[2/3] w-full overflow-hidden bg-slate-950">
                 <img
@@ -56,7 +59,7 @@ export default function MovieCard({
                                 onPlay(item);
                             }}
                             className="w-10 h-10 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center justify-center shadow-lg shadow-red-600/50 hover:scale-110 active:scale-95 transition"
-                            title="Putar"
+                            title="Putar Film"
                         >
                             <Play className="w-5 h-5 fill-white ml-0.5" />
                         </button>
@@ -73,16 +76,6 @@ export default function MovieCard({
                             title={isSaved ? 'Hapus dari Daftar' : 'Tambah ke Daftar'}
                         >
                             {isSaved ? <Check className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-                        </button>
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onOpenDetail(item);
-                            }}
-                            className="w-9 h-9 rounded-full bg-slate-800/80 border border-white/20 text-slate-200 hover:text-white flex items-center justify-center backdrop-blur-md ml-auto hover:bg-slate-700 transition"
-                            title="Detail"
-                        >
-                            <Info className="w-4 h-4 text-cyan-400" />
                         </button>
                     </div>
 

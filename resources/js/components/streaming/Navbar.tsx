@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, Bell, Bookmark, User, Film, Tv, Sparkles, LogOut, Settings, ChevronDown, X } from 'lucide-react';
+import { Search, Bell, Bookmark, User, Film, Tv, Sparkles, LogOut, Settings, ChevronDown, X, CheckCheck, Trash2, Clock } from 'lucide-react';
 import { Link, usePage } from '@inertiajs/react';
 import { MediaItem, ALL_MEDIA } from '@/data/movies';
 
@@ -11,6 +11,18 @@ interface NavbarProps {
     myListCount: number;
     showMyListOnly: boolean;
     onToggleMyListOnly: (show: boolean) => void;
+    catalogMedia?: MediaItem[];
+}
+
+export interface NotificationItem {
+    id: string;
+    badge: string;
+    badgeColor: string;
+    title: string;
+    message: string;
+    time: string;
+    media?: MediaItem;
+    isRead: boolean;
 }
 
 export default function Navbar({
@@ -20,7 +32,8 @@ export default function Navbar({
     onOpenDetail,
     myListCount,
     showMyListOnly,
-    onToggleMyListOnly
+    onToggleMyListOnly,
+    catalogMedia = []
 }: NavbarProps) {
     const { auth } = usePage().props as any;
     const [isScrolled, setIsScrolled] = useState(false);
@@ -29,6 +42,93 @@ export default function Navbar({
     const [searchResults, setSearchResults] = useState<MediaItem[]>([]);
     const [showProfileMenu, setShowProfileMenu] = useState(false);
     const [showNotifications, setShowNotifications] = useState(false);
+    const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+
+    // Generate real notifications based on live catalog media
+    useEffect(() => {
+        const list: NotificationItem[] = [];
+        const pool = catalogMedia && catalogMedia.length > 0 ? catalogMedia : ALL_MEDIA;
+
+        if (pool.length > 0) {
+            const item0 = pool[0];
+            list.push({
+                id: 'notif-1',
+                badge: 'RILIS 4K',
+                badgeColor: 'bg-red-600/30 text-red-400 border-red-500/30',
+                title: item0.title,
+                message: `Tayangan terbaru kini tersedia dalam kualitas ${item0.quality}. Tonton aksi seru ${item0.title} sekarang!`,
+                time: '10m lalu',
+                media: item0,
+                isRead: false
+            });
+        }
+
+        if (pool.length > 1) {
+            const item1 = pool[1];
+            list.push({
+                id: 'notif-2',
+                badge: 'POPULER #1',
+                badgeColor: 'bg-amber-600/30 text-amber-400 border-amber-500/30',
+                title: `Trending: ${item1.title}`,
+                message: `Menduduki peringkat #1 di Indonesia dengan skor kecocokan ${item1.matchScore}!`,
+                time: '1j lalu',
+                media: item1,
+                isRead: false
+            });
+        }
+
+        const seriesItem = pool.find((m) => m.type === 'series') || pool[2];
+        if (seriesItem) {
+            list.push({
+                id: 'notif-3',
+                badge: 'EPISODE BARU',
+                badgeColor: 'bg-cyan-600/30 text-cyan-400 border-cyan-500/30',
+                title: `Series: ${seriesItem.title}`,
+                message: `Episode baru dari serial eksklusif ZTV Stream sudah tayang.`,
+                time: '3j lalu',
+                media: seriesItem,
+                isRead: false
+            });
+        }
+
+        if (myListCount > 0) {
+            list.push({
+                id: 'notif-4',
+                badge: 'DAFTAR SAYA',
+                badgeColor: 'bg-emerald-600/30 text-emerald-400 border-emerald-500/30',
+                title: 'Pengingat Tontonan',
+                message: `Kamu memiliki ${myListCount} judul film tersimpan di Daftar Saya. Siap ditonton kapan saja!`,
+                time: 'Hari Ini',
+                isRead: false
+            });
+        }
+
+        setNotifications(list);
+    }, [catalogMedia, myListCount]);
+
+    const unreadCount = notifications.filter((n) => !n.isRead).length;
+
+    const markAllAsRead = () => {
+        setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+    };
+
+    const clearNotifications = () => {
+        setNotifications([]);
+    };
+
+    const handleNotificationClick = (notif: NotificationItem) => {
+        setNotifications((prev) =>
+            prev.map((n) => (n.id === notif.id ? { ...n, isRead: true } : n))
+        );
+
+        if (notif.media) {
+            onOpenDetail(notif.media);
+        } else if (notif.id === 'notif-4') {
+            onToggleMyListOnly(true);
+        }
+
+        setShowNotifications(false);
+    };
 
     useEffect(() => {
         const handleScroll = () => {
@@ -201,7 +301,7 @@ export default function Navbar({
 
                         {/* Search Autocomplete Results Overlay */}
                         {isSearchOpen && searchResults.length > 0 && (
-                            <div className="absolute top-12 right-0 w-80 sm:w-96 bg-slate-900/95 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl p-2 z-50 max-h-96 overflow-y-auto divide-y divide-white/5">
+                            <div className="fixed sm:absolute top-16 sm:top-12 left-3 right-3 sm:left-auto sm:right-0 w-auto sm:w-96 bg-slate-950/95 backdrop-blur-2xl border border-white/15 rounded-2xl shadow-2xl p-2 z-50 max-h-[75vh] overflow-y-auto divide-y divide-white/5 animate-in fade-in duration-200">
                                 <div className="px-3 py-1.5 text-xs font-semibold text-slate-400 uppercase tracking-wider">
                                     Hasil Pencarian ({searchResults.length})
                                 </div>
@@ -248,35 +348,129 @@ export default function Navbar({
                     {/* Notification Bell */}
                     <div className="relative">
                         <button
-                            onClick={() => setShowNotifications(!showNotifications)}
-                            className="p-2 rounded-full text-slate-300 hover:text-white hover:bg-white/10 transition relative"
-                            title="Notifikasi"
+                            onClick={() => {
+                                setShowNotifications(!showNotifications);
+                                setShowProfileMenu(false);
+                            }}
+                            className="p-2 rounded-full text-slate-300 hover:text-white hover:bg-white/10 transition relative active:scale-95 cursor-pointer"
+                            title="Notifikasi & Rilis Baru"
+                            aria-label="Notifikasi"
                         >
                             <Bell className="w-5 h-5" />
-                            <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full ring-2 ring-slate-950" />
+                            {unreadCount > 0 && (
+                                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-600 text-white font-extrabold text-[10px] rounded-full flex items-center justify-center ring-2 ring-slate-950 animate-pulse">
+                                    {unreadCount}
+                                </span>
+                            )}
                         </button>
 
                         {showNotifications && (
-                            <div className="absolute top-12 right-0 w-80 bg-slate-900/95 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl p-4 z-50 text-slate-200 text-sm">
-                                <div className="flex items-center justify-between pb-2 border-b border-white/10">
-                                    <span className="font-semibold text-white">Notifikasi Rilis Baru</span>
-                                    <span className="text-xs text-slate-400">Baru Saja</span>
+                            <div className="fixed sm:absolute top-16 sm:top-14 left-3 right-3 sm:left-auto sm:right-0 w-auto sm:w-[400px] md:w-[440px] bg-slate-950/95 backdrop-blur-2xl border border-white/15 rounded-2xl shadow-2xl shadow-black/80 p-4 sm:p-5 z-50 text-slate-200 text-sm max-h-[80vh] sm:max-h-[520px] overflow-y-auto animate-in fade-in zoom-in-95 duration-200 border-t-2 border-t-red-600">
+                                {/* Header */}
+                                <div className="flex items-center justify-between pb-3.5 border-b border-white/10">
+                                    <div className="flex items-center gap-2">
+                                        <div className="p-1.5 rounded-lg bg-red-600/20 text-red-500">
+                                            <Bell className="w-4 h-4" />
+                                        </div>
+                                        <span className="font-extrabold text-white text-sm sm:text-base tracking-tight">Pemberitahuan & Rilis</span>
+                                        {unreadCount > 0 && (
+                                            <span className="px-2 py-0.5 rounded-full bg-red-600/30 text-red-400 text-[10px] font-extrabold border border-red-500/30 animate-pulse">
+                                                {unreadCount} Baru
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    <div className="flex items-center gap-1.5">
+                                        {unreadCount > 0 && (
+                                            <button
+                                                onClick={markAllAsRead}
+                                                className="text-[11px] text-slate-300 hover:text-white px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 transition flex items-center gap-1 cursor-pointer font-medium"
+                                                title="Tandai semua dibaca"
+                                            >
+                                                <CheckCheck className="w-3.5 h-3.5 text-emerald-400" />
+                                                <span className="hidden sm:inline">Tandai Dibaca</span>
+                                            </button>
+                                        )}
+                                        {notifications.length > 0 && (
+                                            <button
+                                                onClick={clearNotifications}
+                                                className="text-[11px] text-slate-400 hover:text-red-400 p-1.5 rounded-lg bg-white/5 hover:bg-red-950/30 border border-white/10 transition cursor-pointer"
+                                                title="Bersihkan notifikasi"
+                                            >
+                                                <Trash2 className="w-3.5 h-3.5" />
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
-                                <div className="mt-3 space-y-3">
-                                    <div className="flex items-start gap-3">
-                                        <span className="p-1.5 bg-red-600/30 text-red-400 rounded-lg text-xs font-bold shrink-0">NEW</span>
-                                        <div>
-                                            <p className="text-xs font-medium text-white">Garuda: Bangkitnya Santakala (2026)</p>
-                                            <p className="text-[11px] text-slate-400">Episode baru ZTV Original sekarang tersedia dalam 4K HDR.</p>
+
+                                {/* Notification Cards List */}
+                                <div className="mt-3.5 space-y-2.5">
+                                    {notifications.length === 0 ? (
+                                        <div className="py-10 text-center space-y-2 text-slate-400">
+                                            <div className="w-12 h-12 rounded-2xl bg-slate-900 border border-white/10 flex items-center justify-center mx-auto text-slate-500">
+                                                <Bell className="w-6 h-6" />
+                                            </div>
+                                            <p className="text-xs font-semibold text-white">Tidak ada pemberitahuan baru</p>
+                                            <p className="text-[11px] text-slate-500">Semua rilis film dan rekomendasi telah diperbarui.</p>
                                         </div>
-                                    </div>
-                                    <div className="flex items-start gap-3">
-                                        <span className="p-1.5 bg-cyan-600/30 text-cyan-400 rounded-lg text-xs font-bold shrink-0">POPULER</span>
-                                        <div>
-                                            <p className="text-xs font-medium text-white">Nightmare in Nanting Ep.3</p>
-                                            <p className="text-[11px] text-slate-400">Trending #1 di Indonesia hari ini!</p>
-                                        </div>
-                                    </div>
+                                    ) : (
+                                        notifications.map((notif) => (
+                                            <div
+                                                key={notif.id}
+                                                onClick={() => handleNotificationClick(notif)}
+                                                className={`flex items-start gap-3.5 p-3 rounded-2xl border transition-all duration-200 cursor-pointer group relative ${
+                                                    notif.isRead
+                                                        ? 'bg-slate-900/40 border-white/5 text-slate-400 hover:bg-white/5'
+                                                        : 'bg-slate-900/90 border-white/15 text-slate-200 hover:bg-slate-900 hover:border-red-500/50 shadow-lg shadow-black/40'
+                                                }`}
+                                            >
+                                                {/* Poster Thumbnail or Icon */}
+                                                {notif.media ? (
+                                                    <div className="relative w-14 h-20 rounded-xl overflow-hidden bg-slate-950 shrink-0 border border-white/10 group-hover:border-red-500/50 shadow-md transition-all duration-300">
+                                                        <img
+                                                            src={notif.media.posterUrl}
+                                                            alt={notif.title}
+                                                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                                        />
+                                                    </div>
+                                                ) : (
+                                                    <div className="w-12 h-12 rounded-xl bg-red-600/20 text-red-500 flex items-center justify-center shrink-0 font-bold border border-red-500/30">
+                                                        <Bookmark className="w-5 h-5" />
+                                                    </div>
+                                                )}
+
+                                                <div className="flex-1 min-w-0 space-y-1">
+                                                    <div className="flex items-center justify-between gap-2">
+                                                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-black tracking-wider uppercase border ${notif.badgeColor}`}>
+                                                            {notif.badge}
+                                                        </span>
+                                                        <span className="text-[10px] text-slate-400 flex items-center gap-1 font-mono shrink-0">
+                                                            <Clock className="w-3 h-3 text-slate-500" />
+                                                            {notif.time}
+                                                        </span>
+                                                    </div>
+
+                                                    <p className={`text-xs sm:text-sm font-bold group-hover:text-red-400 transition-colors line-clamp-1 ${notif.isRead ? 'text-slate-300' : 'text-white'}`}>
+                                                        {notif.title}
+                                                    </p>
+                                                    <p className="text-[11px] sm:text-xs text-slate-400 group-hover:text-slate-300 transition-colors line-clamp-2 leading-relaxed">
+                                                        {notif.message}
+                                                    </p>
+                                                </div>
+
+                                                {/* Unread indicator glowing dot */}
+                                                {!notif.isRead && (
+                                                    <span className="w-2.5 h-2.5 rounded-full bg-red-500 ring-4 ring-red-500/20 shrink-0 mt-1" />
+                                                )}
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+
+                                {/* Desktop Footer */}
+                                <div className="pt-3 mt-3 border-t border-white/10 text-center text-[10px] text-slate-500 flex items-center justify-between">
+                                    <span>ZTV Stream Live Notifications</span>
+                                    <span className="text-red-400 font-semibold">Klik untuk Detail</span>
                                 </div>
                             </div>
                         )}
@@ -356,13 +550,29 @@ export default function Navbar({
                         }}
                         className={`px-3 py-1 rounded-full text-xs font-medium shrink-0 transition-all ${
                             activeCategory === cat && !showMyListOnly
-                                ? 'bg-red-600 text-white font-semibold'
+                                ? 'bg-red-600 text-white font-semibold shadow-md shadow-red-600/30'
                                 : 'bg-white/10 text-slate-300 hover:bg-white/20'
                         }`}
                     >
                         {cat}
                     </button>
                 ))}
+                <button
+                    onClick={() => onToggleMyListOnly(true)}
+                    className={`px-3 py-1 rounded-full text-xs font-medium shrink-0 transition-all flex items-center gap-1 ${
+                        showMyListOnly
+                            ? 'bg-amber-500 text-slate-950 font-bold shadow-md'
+                            : 'bg-white/10 text-slate-300 hover:bg-white/20'
+                    }`}
+                >
+                    <Bookmark className="w-3 h-3" />
+                    <span>Daftar Saya</span>
+                    {myListCount > 0 && (
+                        <span className="px-1.5 py-0.2 text-[9px] bg-red-600 text-white rounded-full font-extrabold ml-0.5">
+                            {myListCount}
+                        </span>
+                    )}
+                </button>
             </div>
         </header>
     );

@@ -72,12 +72,12 @@ export default function HeroSpotlight({
                     </div>
 
                     {/* Title */}
-                    <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white drop-shadow-2xl leading-none uppercase">
+                    <h1 className="text-2xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white drop-shadow-2xl leading-tight sm:leading-none uppercase">
                         {currentItem.title}
                     </h1>
 
                     {/* Genre list & metadata */}
-                    <div className="flex items-center gap-3 text-sm text-slate-300 font-medium">
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs sm:text-sm text-slate-300 font-medium">
                         <span>{currentItem.year}</span>
                         <span>•</span>
                         <span>{currentItem.duration}</span>
@@ -86,38 +86,38 @@ export default function HeroSpotlight({
                     </div>
 
                     {/* Synopsis */}
-                    <p className="text-sm sm:text-base text-slate-300 line-clamp-3 leading-relaxed drop-shadow max-w-xl">
+                    <p className="text-xs sm:text-base text-slate-300 line-clamp-2 sm:line-clamp-3 leading-relaxed drop-shadow max-w-xl">
                         {currentItem.synopsis}
                     </p>
 
                     {/* Action Buttons */}
-                    <div className="flex flex-wrap items-center gap-3 pt-2">
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-3 pt-1 sm:pt-2">
                         <button
                             onClick={() => onPlay(currentItem)}
-                            className="px-6 py-3 rounded-2xl bg-red-600 hover:bg-red-500 text-white font-bold text-base flex items-center gap-2 shadow-xl shadow-red-600/30 hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer"
+                            className="px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs sm:text-base flex items-center justify-center gap-1.5 sm:gap-2 shadow-xl shadow-red-600/30 hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer flex-1 sm:flex-none min-w-[120px]"
                         >
-                            <Play className="w-5 h-5 fill-white" />
-                            Putar Sekarang
+                            <Play className="w-4 h-4 sm:w-5 sm:h-5 fill-white" />
+                            <span>Putar</span>
                         </button>
 
                         <button
                             onClick={() => onToggleMyList(currentItem.id)}
-                            className={`px-5 py-3 rounded-2xl font-semibold text-sm flex items-center gap-2 backdrop-blur-md transition-all duration-200 border cursor-pointer ${
+                            className={`px-3.5 sm:px-5 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl font-semibold text-xs sm:text-sm flex items-center justify-center gap-1.5 sm:gap-2 backdrop-blur-md transition-all duration-200 border cursor-pointer flex-1 sm:flex-none ${
                                 isSaved
                                     ? 'bg-emerald-600/30 border-emerald-500/50 text-emerald-300 hover:bg-emerald-600/40'
                                     : 'bg-white/10 border-white/20 text-white hover:bg-white/20'
                             }`}
                         >
                             {isSaved ? <Check className="w-4 h-4 text-emerald-400" /> : <Plus className="w-4 h-4" />}
-                            {isSaved ? 'Tersimpan di Daftar' : 'Tambah ke Daftar'}
+                            <span>{isSaved ? 'Tersimpan' : 'Daftar Saya'}</span>
                         </button>
 
                         <button
                             onClick={() => onOpenDetail(currentItem)}
-                            className="px-5 py-3 rounded-2xl bg-slate-900/80 border border-white/10 hover:bg-slate-800 text-slate-200 font-semibold text-sm flex items-center gap-2 backdrop-blur-md transition-all cursor-pointer"
+                            className="px-3.5 sm:px-5 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl bg-slate-900/80 border border-white/10 hover:bg-slate-800 text-slate-200 font-semibold text-xs sm:text-sm flex items-center justify-center gap-1.5 sm:gap-2 backdrop-blur-md transition-all cursor-pointer w-full sm:w-auto"
                         >
                             <Info className="w-4 h-4 text-cyan-400" />
-                            Info Selengkapnya
+                            <span>Info Selengkapnya</span>
                         </button>
                     </div>
                 </div>

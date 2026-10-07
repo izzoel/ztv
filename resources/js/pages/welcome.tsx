@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Head } from '@inertiajs/react';
 import { MediaItem } from '@/data/movies';
-import { fetchLiveTmdbCatalog } from '@/lib/tmdbService';
+import { fetchLiveTmdbCatalog, fetchMoreTmdbContent } from '@/lib/tmdbService';
 import Navbar from '@/components/streaming/Navbar';
 import HeroSpotlight from '@/components/streaming/HeroSpotlight';
 import CategoryPillFilter from '@/components/streaming/CategoryPillFilter';
@@ -11,7 +11,8 @@ import VideoPlayerModal from '@/components/streaming/VideoPlayerModal';
 import MovieDetailModal from '@/components/streaming/MovieDetailModal';
 import StreamingFooter from '@/components/streaming/StreamingFooter';
 import StreamingSkeleton from '@/components/streaming/StreamingSkeleton';
-import { Bookmark, Film } from 'lucide-react';
+import DevNoticeBanner from '@/components/streaming/DevNoticeBanner';
+import { Bookmark, Film, RefreshCw } from 'lucide-react';
 
 export default function Welcome() {
     const [activeCategory, setActiveCategory] = useState('Semua');
@@ -19,8 +20,15 @@ export default function Welcome() {
     const [myList, setMyList] = useState<string[]>([]);
     const [showMyListOnly, setShowMyListOnly] = useState(false);
 
+    // Infinite Scroll Pagination & Loading State
+    const [moviePage, setMoviePage] = useState<number>(2);
+    const [seriesPage, setSeriesPage] = useState<number>(2);
+    const [isFetchingMore, setIsFetchingMore] = useState<boolean>(false);
+
     // Modal State Management (Strictly Isolated)
     const [playingMedia, setPlayingMedia] = useState<MediaItem | null>(null);
+    const [playingEpisodeNumber, setPlayingEpisodeNumber] = useState<number>(1);
+    const [playingSeasonNumber, setPlayingSeasonNumber] = useState<number>(1);
     const [detailMedia, setDetailMedia] = useState<MediaItem | null>(null);
 
     // Dynamic TMDB State & Loading
@@ -34,9 +42,11 @@ export default function Welcome() {
     const [isTmdbLive, setIsTmdbLive] = useState<boolean>(false);
 
     // Helper functions to prevent modal stacking
-    const handlePlayMedia = (item: MediaItem) => {
+    const handlePlayMedia = (item: MediaItem, episodeNumber: number = 1, seasonNumber: number = 1) => {
         setDetailMedia(null);
         setPlayingMedia(item);
+        setPlayingEpisodeNumber(episodeNumber || 1);
+        setPlayingSeasonNumber(seasonNumber || 1);
     };
 
     const handleOpenDetail = (item: MediaItem) => {
@@ -101,6 +111,64 @@ export default function Welcome() {
         }
     }, []);
 
+    // Infinite Scroll API Fetch Handler
+    const loadMoreContent = async () => {
+        if (isFetchingMore) return;
+        setIsFetchingMore(true);
+
+        try {
+            let typeToFetch: 'movie' | 'series' = 'movie';
+            let nextPage = moviePage;
+
+            if (activeCategory === 'Serial TV') {
+                typeToFetch = 'series';
+                nextPage = seriesPage;
+            } else if (activeCategory === 'Film') {
+                typeToFetch = 'movie';
+                nextPage = moviePage;
+            } else {
+                typeToFetch = moviePage <= seriesPage ? 'movie' : 'series';
+                nextPage = typeToFetch === 'movie' ? moviePage : seriesPage;
+            }
+
+            const newItems = await fetchMoreTmdbContent(typeToFetch, nextPage);
+
+            if (newItems.length > 0) {
+                setAllMedia((prev) => {
+                    const existingIds = new Set(prev.map((m) => m.tmdbId || m.id));
+                    const uniqueNew = newItems.filter((m) => !existingIds.has(m.tmdbId || m.id));
+                    return [...prev, ...uniqueNew];
+                });
+
+                if (typeToFetch === 'movie') {
+                    setMoviePage((p) => p + 1);
+                } else {
+                    setSeriesPage((p) => p + 1);
+                }
+            }
+        } catch (err) {
+            console.warn('Infinite scroll error:', err);
+        } finally {
+            setIsFetchingMore(false);
+        }
+    };
+
+    // Global Window Scroll Listener for Infinite Scroll
+    useEffect(() => {
+        const handleScroll = () => {
+            if (isLoading || isFetchingMore) return;
+            const scrollPosition = window.innerHeight + window.scrollY;
+            const threshold = document.documentElement.offsetHeight - 700;
+
+            if (scrollPosition >= threshold) {
+                loadMoreContent();
+            }
+        };
+
+        window.addEventListener('scroll', handleScroll);
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, [isLoading, isFetchingMore, activeCategory, moviePage, seriesPage]);
+
     const handleToggleMyList = (id: string) => {
         setMyList((prev) => {
             const updated = prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id];
@@ -163,6 +231,7 @@ export default function Welcome() {
                     myListCount={myList.length}
                     showMyListOnly={showMyListOnly}
                     onToggleMyListOnly={setShowMyListOnly}
+                    catalogMedia={allMedia}
                 />
 
 
@@ -251,7 +320,6 @@ export default function Welcome() {
                                         <h1 className="text-2xl font-bold text-white flex items-center gap-2">
                                             <Film className="w-6 h-6 text-red-500" />
                                             {activeCategory !== 'Semua' ? activeCategory : ''} {activeGenre !== 'Semua' ? `- ${activeGenre}` : ''}
-                                            <span className="text-sm text-slate-400 font-normal">({filteredMedia.length} Judul)</span>
                                         </h1>
                                     </div>
 
@@ -333,6 +401,14 @@ export default function Welcome() {
                                     />
                                 </>
                             )}
+
+                            {/* Infinite Scroll Dynamic Loading Indicator */}
+                            {isFetchingMore && (
+                                <div className="flex items-center justify-center gap-3 py-10 text-slate-400 text-xs sm:text-sm font-semibold">
+                                    <RefreshCw className="w-5 h-5 text-red-500 animate-spin" />
+                                    <span>Memuat lebih banyak film & serial TV dari TMDB...</span>
+                                </div>
+                            )}
                         </main>
                     </>
                 )}
@@ -344,6 +420,8 @@ export default function Welcome() {
                 {playingMedia && (
                     <VideoPlayerModal
                         item={playingMedia}
+                        initialEpisodeNumber={playingEpisodeNumber}
+                        initialSeasonNumber={playingSeasonNumber}
                         onClose={() => setPlayingMedia(null)}
                     />
                 )}
@@ -357,6 +435,8 @@ export default function Welcome() {
                         onToggleMyList={handleToggleMyList}
                     />
                 )}
+                {/* Development Notice Toast Banner */}
+                <DevNoticeBanner />
             </div>
         </>
     );
