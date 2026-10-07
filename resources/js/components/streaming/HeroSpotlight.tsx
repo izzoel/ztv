@@ -18,7 +18,7 @@ export default function HeroSpotlight({
     myList,
     onToggleMyList
 }: HeroSpotlightProps) {
-    const { t } = useLanguage();
+    const { language, t } = useLanguage();
     const [currentIndex, setCurrentIndex] = useState(0);
     const touchStartX = useRef<number | null>(null);
     const touchEndX = useRef<number | null>(null);
@@ -120,7 +120,7 @@ export default function HeroSpotlight({
 
                     {/* Synopsis */}
                     <p className="text-xs sm:text-base text-slate-300 line-clamp-2 sm:line-clamp-3 leading-relaxed drop-shadow max-w-xl">
-                        {currentItem.synopsis}
+                        {language === 'en' && currentItem.synopsisEn ? currentItem.synopsisEn : currentItem.synopsis}
                     </p>
 
                     {/* Action Buttons */}

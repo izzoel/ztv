@@ -40,6 +40,15 @@ export const translations = {
         player_close: 'Tutup',
         player_connecting: 'Menghubungkan Server Streambert...',
 
+        // Movie Detail & Synopsis
+        synopsis_title: 'Sinopsis',
+        cast_title: 'Pemeran Utama',
+        director_title: 'Sutradara',
+        genre_title: 'Genre',
+        episodes_title: 'Daftar Episode',
+        play_movie: 'Putar Film',
+        close_modal: 'Tutup',
+
         // Footer
         footer_devices_title: 'Tonton di Mana Saja, Kapan Saja',
         footer_devices_desc: 'Tersedia di Smart TV, Ponsel, Tablet, Laptop, dan Konsol Game.',
@@ -87,6 +96,15 @@ export const translations = {
         player_close: 'Close',
         player_connecting: 'Connecting to Streaming Server...',
 
+        // Movie Detail & Synopsis
+        synopsis_title: 'Synopsis',
+        cast_title: 'Starring',
+        director_title: 'Director',
+        genre_title: 'Genres',
+        episodes_title: 'Episodes List',
+        play_movie: 'Play Movie',
+        close_modal: 'Close',
+
         // Footer
         footer_devices_title: 'Watch Anywhere, Anytime',
         footer_devices_desc: 'Available on Smart TVs, Phones, Tablets, Laptops, and Game Consoles.',
@@ -94,7 +112,7 @@ export const translations = {
         footer_terms_link: 'Terms of Service',
         footer_privacy_link: 'Privacy Policy',
         footer_cookie_link: 'Cookie Preferences',
-        footer_lang_title: 'BAHASA',
+        footer_lang_title: 'LANGUAGE',
         footer_copyright: 'ZTV @ 2026 part of zetware.id',
     },
 };
@@ -118,6 +136,9 @@ export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }
         const savedLang = localStorage.getItem('ztv_lang') as Language;
         if (savedLang && (savedLang === 'id' || savedLang === 'en')) {
             setLanguageState(savedLang);
+        } else {
+            setLanguageState('id');
+            localStorage.setItem('ztv_lang', 'id');
         }
     }, []);
 

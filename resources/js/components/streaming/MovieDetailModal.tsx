@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Play, Plus, Check, X, Star, Film, Clock, RefreshCw, Layers, ChevronDown } from 'lucide-react';
 import { MediaItem, Episode } from '@/data/movies';
 import { fetchTmdbCredits, fetchTmdbEpisodes, fetchTmdbTvSeasons } from '@/lib/tmdbService';
+import { useLanguage } from '@/lib/i18n';
 
 interface MovieDetailModalProps {
     item: MediaItem | null;
@@ -18,6 +19,7 @@ export default function MovieDetailModal({
     isSaved,
     onToggleMyList
 }: MovieDetailModalProps) {
+    const { language, t } = useLanguage();
     const [castList, setCastList] = useState<string[]>(item?.cast || []);
     const [directorName, setDirectorName] = useState<string>(item?.director || '');
     const [isLoadingCredits, setIsLoadingCredits] = useState<boolean>(false);
@@ -96,7 +98,7 @@ export default function MovieDetailModal({
                     aria-label="Tutup Modal"
                 >
                     <X className="w-4 h-4 text-slate-300 group-hover:text-white transition" />
-                    <span>Tutup</span>
+                    <span>{t('close_modal')}</span>
                 </button>
 
                 {/* Hero Header Banner */}
@@ -141,7 +143,7 @@ export default function MovieDetailModal({
                                 className="px-6 py-3 rounded-2xl bg-red-600 hover:bg-red-500 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-red-600/40 transition active:scale-95 cursor-pointer w-full sm:w-auto"
                             >
                                 <Play className="w-4 h-4 fill-white" />
-                                Putar Film
+                                {t('play_movie')}
                             </button>
 
                             <button
@@ -153,7 +155,7 @@ export default function MovieDetailModal({
                                 }`}
                             >
                                 {isSaved ? <Check className="w-4 h-4 text-emerald-400" /> : <Plus className="w-4 h-4" />}
-                                {isSaved ? 'Tersimpan' : 'Daftar Saya'}
+                                {isSaved ? t('hero_saved') : t('hero_my_list')}
                             </button>
                         </div>
                     </div>
@@ -164,36 +166,38 @@ export default function MovieDetailModal({
                     {/* Synopsis & Cast */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
                         <div className="md:col-span-2 space-y-2.5 sm:space-y-3">
-                            <h3 className="text-base sm:text-lg font-bold text-white">Ringkasan Cerita</h3>
-                            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">{item.synopsis}</p>
+                            <h3 className="text-base sm:text-lg font-bold text-white">{t('synopsis_title')}</h3>
+                            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                                {language === 'en' && item.synopsisEn ? item.synopsisEn : item.synopsis}
+                            </p>
                         </div>
                         <div className="space-y-2.5 bg-slate-900/60 p-3.5 sm:p-4 rounded-2xl border border-white/10 text-xs">
                             <div>
-                                <span className="text-slate-400 block font-semibold mb-0.5">Pemeran Utama:</span>
+                                <span className="text-slate-400 block font-semibold mb-0.5">{t('cast_title')}:</span>
                                 <span className="text-white font-medium">
                                     {isLoadingCredits && castList.length === 0 ? (
-                                        <span className="text-slate-500 italic">Memuat pemeran...</span>
+                                        <span className="text-slate-500 italic">{language === 'en' ? 'Loading cast...' : 'Memuat pemeran...'}</span>
                                     ) : castList.length > 0 ? (
                                         castList.join(', ')
                                     ) : (
-                                        'Pemeran Utama TMDB'
+                                        'TMDB Lead Cast'
                                     )}
                                 </span>
                             </div>
                             <div>
-                                <span className="text-slate-400 block font-semibold mb-0.5">Sutradara:</span>
+                                <span className="text-slate-400 block font-semibold mb-0.5">{t('director_title')}:</span>
                                 <span className="text-white font-medium">
                                     {isLoadingCredits && !directorName ? (
-                                        <span className="text-slate-500 italic">Memuat sutradara...</span>
+                                        <span className="text-slate-500 italic">{language === 'en' ? 'Loading director...' : 'Memuat sutradara...'}</span>
                                     ) : directorName ? (
                                         directorName
                                     ) : (
-                                        'Sutradara Sinema'
+                                        'Director'
                                     )}
                                 </span>
                             </div>
                             <div>
-                                <span className="text-slate-400 block font-semibold mb-0.5">Genre:</span>
+                                <span className="text-slate-400 block font-semibold mb-0.5">{t('genre_title')}:</span>
                                 <span className="text-red-400 font-semibold">{item.genres.join(', ')}</span>
                             </div>
                         </div>
@@ -205,7 +209,7 @@ export default function MovieDetailModal({
                             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-white/10 pb-3 gap-3">
                                 <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
                                     <Film className="w-5 h-5 text-red-500" />
-                                    Daftar Episode
+                                    {t('episodes_title')}
                                 </h3>
 
                                 {/* Dynamic Season Dropdown */}

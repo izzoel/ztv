@@ -80,10 +80,12 @@ export async function fetchFromTmdb(endpoint: string, params: Record<string, str
     }
 }
 
-/**
- * Format raw TMDB result item to ZTV MediaItem
- */
-export function formatTmdbItemToMedia(item: any, forceType?: 'movie' | 'series', isOriginal: boolean = false): MediaItem | null {
+export function formatTmdbItemToMedia(
+    item: any,
+    forceType?: 'movie' | 'series',
+    isOriginal: boolean = false,
+    enOverviewMap?: Map<number | string, string>
+): MediaItem | null {
     if (!item || (!item.poster_path && !item.backdrop_path)) return null;
 
     const isMovie = forceType ? forceType === 'movie' : (item.media_type === 'movie' || Boolean(item.release_date));
@@ -120,6 +122,32 @@ export function formatTmdbItemToMedia(item: any, forceType?: 'movie' | 'series',
         ? `${TMDB_IMG_BACKDROP}${item.backdrop_path}`
         : posterUrl;
 
+    const rawOverview = item.overview ? item.overview.trim() : '';
+    const rawEnOverview = enOverviewMap?.get(item.id) || '';
+
+    let synopsisId = '';
+    let synopsisEn = '';
+
+    const isEng = (text: string) => {
+        if (!text) return false;
+        const lower = text.toLowerCase();
+        return [' the ', ' and ', ' with ', ' from ', ' after ', ' that ', ' when ', ' his ', ' her ', ' their '].some(w => lower.includes(w));
+    };
+
+    if (rawOverview && !isEng(rawOverview) && rawOverview.length > 10) {
+        synopsisId = rawOverview;
+    } else {
+        synopsisId = `Mengisahkan tentang perjalanan mendalam dalam ${title}. Menyajikan alur cerita berkelas dunia yang penuh ketegangan, drama, dan momen emosional memukau.`;
+    }
+
+    if (rawEnOverview && rawEnOverview.length > 10) {
+        synopsisEn = rawEnOverview;
+    } else if (rawOverview && isEng(rawOverview)) {
+        synopsisEn = rawOverview;
+    } else {
+        synopsisEn = `Follow the extraordinary journey in ${title}. Featuring world-class storytelling packed with suspense, action, and compelling drama.`;
+    }
+
     return {
         id: `tmdb-${isMovie ? 'mov' : 'tv'}-${item.id}`,
         tmdbId: item.id,
@@ -132,9 +160,8 @@ export function formatTmdbItemToMedia(item: any, forceType?: 'movie' | 'series',
         duration: isMovie ? '2j 15m' : '1 Musim (10 Episode)',
         quality: item.vote_average > 8.0 ? '4K Ultra HD' : 'HD',
         genres: genreNames,
-        synopsis: item.overview && item.overview.trim().length > 10
-            ? item.overview
-            : `Menampilkan alur cerita seru nan memukau. Nikmati tayangan ${title} dengan kualitas video streaming jernih dari server ZTV.`,
+        synopsis: synopsisId,
+        synopsisEn: synopsisEn,
         cast: [],
         director: '',
         posterUrl: posterUrl,
@@ -169,10 +196,23 @@ export function formatTmdbItemToMedia(item: any, forceType?: 'movie' | 'series',
 export async function searchTmdbContent(query: string): Promise<MediaItem[]> {
     if (!query || query.trim().length < 2) return [];
     try {
-        const res = await fetchFromTmdb('/search/multi', { query: query.trim() });
-        if (!res || !res.results || !Array.isArray(res.results)) return [];
-        return res.results
-            .map((item: any) => formatTmdbItemToMedia(item))
+        const [resId, resEn] = await Promise.all([
+            fetchFromTmdb('/search/multi', { query: query.trim(), language: 'id-ID' }),
+            fetchFromTmdb('/search/multi', { query: query.trim(), language: 'en-US' }),
+        ]);
+
+        const enMap = new Map<number | string, string>();
+        if (resEn?.results && Array.isArray(resEn.results)) {
+            resEn.results.forEach((item: any) => {
+                if (item?.id && item?.overview) {
+                    enMap.set(item.id, item.overview.trim());
+                }
+            });
+        }
+
+        if (!resId || !resId.results || !Array.isArray(resId.results)) return [];
+        return resId.results
+            .map((item: any) => formatTmdbItemToMedia(item, undefined, false, enMap))
             .filter((item: MediaItem | null): item is MediaItem => item !== null)
             .slice(0, 10);
     } catch {
@@ -192,18 +232,42 @@ export async function fetchLiveTmdbCatalog(): Promise<{
     series: MediaItem[];
     all: MediaItem[];
 }> {
-    const [trendingRes, popularMoviesRes, popularTvRes, actionRes, horrorRes] = await Promise.all([
-        fetchFromTmdb('/trending/all/day'),
-        fetchFromTmdb('/movie/popular'),
-        fetchFromTmdb('/tv/popular'),
-        fetchFromTmdb('/discover/movie', { with_genres: '28,878', sort_by: 'popularity.desc' }),
-        fetchFromTmdb('/discover/movie', { with_genres: '27,53', sort_by: 'popularity.desc' }),
+    const [
+        trendingRes, trendingEnRes,
+        popularMoviesRes, popularMoviesEnRes,
+        popularTvRes, popularTvEnRes,
+        actionRes, actionEnRes,
+        horrorRes, horrorEnRes
+    ] = await Promise.all([
+        fetchFromTmdb('/trending/all/day', { language: 'id-ID' }),
+        fetchFromTmdb('/trending/all/day', { language: 'en-US' }),
+        fetchFromTmdb('/movie/popular', { language: 'id-ID' }),
+        fetchFromTmdb('/movie/popular', { language: 'en-US' }),
+        fetchFromTmdb('/tv/popular', { language: 'id-ID' }),
+        fetchFromTmdb('/tv/popular', { language: 'en-US' }),
+        fetchFromTmdb('/discover/movie', { with_genres: '28,878', sort_by: 'popularity.desc', language: 'id-ID' }),
+        fetchFromTmdb('/discover/movie', { with_genres: '28,878', sort_by: 'popularity.desc', language: 'en-US' }),
+        fetchFromTmdb('/discover/movie', { with_genres: '27,53', sort_by: 'popularity.desc', language: 'id-ID' }),
+        fetchFromTmdb('/discover/movie', { with_genres: '27,53', sort_by: 'popularity.desc', language: 'en-US' }),
     ]);
+
+    const enOverviewMap = new Map<number | string, string>();
+    [
+        ...(trendingEnRes?.results || []),
+        ...(popularMoviesEnRes?.results || []),
+        ...(popularTvEnRes?.results || []),
+        ...(actionEnRes?.results || []),
+        ...(horrorEnRes?.results || []),
+    ].forEach((item: any) => {
+        if (item && item.id && item.overview && item.overview.trim().length > 5) {
+            enOverviewMap.set(item.id, item.overview.trim());
+        }
+    });
 
     const formatList = (results: any[], forceType?: 'movie' | 'series', isOriginal: boolean = false) => {
         if (!results || !Array.isArray(results)) return [];
         return results
-            .map((item) => formatTmdbItemToMedia(item, forceType, isOriginal))
+            .map((item) => formatTmdbItemToMedia(item, forceType, isOriginal, enOverviewMap))
             .filter((item): item is MediaItem => item !== null);
     };
 
@@ -265,10 +329,23 @@ export async function fetchMoreTmdbContent(
 ): Promise<MediaItem[]> {
     try {
         const endpoint = type === 'movie' ? '/movie/popular' : '/tv/popular';
-        const res = await fetchFromTmdb(endpoint, { page: String(page) });
-        if (!res || !res.results || !Array.isArray(res.results)) return [];
-        return res.results
-            .map((item: any) => formatTmdbItemToMedia(item, type, type === 'series'))
+        const [resId, resEn] = await Promise.all([
+            fetchFromTmdb(endpoint, { page: String(page), language: 'id-ID' }),
+            fetchFromTmdb(endpoint, { page: String(page), language: 'en-US' }),
+        ]);
+
+        const enMap = new Map<number | string, string>();
+        if (resEn?.results && Array.isArray(resEn.results)) {
+            resEn.results.forEach((item: any) => {
+                if (item?.id && item?.overview) {
+                    enMap.set(item.id, item.overview.trim());
+                }
+            });
+        }
+
+        if (!resId || !resId.results || !Array.isArray(resId.results)) return [];
+        return resId.results
+            .map((item: any) => formatTmdbItemToMedia(item, type, type === 'series', enMap))
             .filter((item: MediaItem | null): item is MediaItem => item !== null);
     } catch {
         return [];
