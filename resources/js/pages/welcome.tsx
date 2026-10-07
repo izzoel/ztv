@@ -12,15 +12,16 @@ import MovieDetailModal from '@/components/streaming/MovieDetailModal';
 import StreamingFooter from '@/components/streaming/StreamingFooter';
 import StreamingSkeleton from '@/components/streaming/StreamingSkeleton';
 import DevNoticeBanner from '@/components/streaming/DevNoticeBanner';
-import { Bookmark, Film, RefreshCw } from 'lucide-react';
+import { useLanguage } from '@/lib/i18n';
 
 export default function Welcome() {
+    const { t } = useLanguage();
     const [activeCategory, setActiveCategory] = useState('Semua');
     const [activeGenre, setActiveGenre] = useState('Semua');
     const [myList, setMyList] = useState<string[]>([]);
     const [showMyListOnly, setShowMyListOnly] = useState(false);
 
-    // Infinite Scroll Pagination & Loading State
+    // Infinite Scroll Pagination & Loading State (Khusus Halaman Film & Serial TV)
     const [moviePage, setMoviePage] = useState<number>(2);
     const [seriesPage, setSeriesPage] = useState<number>(2);
     const [isFetchingMore, setIsFetchingMore] = useState<boolean>(false);
@@ -74,14 +75,14 @@ export default function Welcome() {
             try {
                 setIsLoading(true);
                 const catalog = await fetchLiveTmdbCatalog();
-                if (isMounted && catalog && catalog.all.length > 0) {
+                if (isMounted && catalog) {
                     setFeaturedMedia(catalog.featured);
                     setAllMedia(catalog.all);
                     setTop10Media(catalog.top10);
                     setTrendingMedia(catalog.trending);
                     setActionMedia(catalog.action);
                     setHorrorMedia(catalog.horror);
-                    setIsTmdbLive(true);
+                    setIsTmdbLive(catalog.all.length > 0);
                 }
             } catch (error) {
                 console.error('Failed to load TMDB live catalog:', error);
@@ -111,25 +112,14 @@ export default function Welcome() {
         }
     }, []);
 
-    // Infinite Scroll API Fetch Handler
+    // Infinite Scroll API Fetch Handler (Aktif HANYA di Kategori Film & Serial TV)
     const loadMoreContent = async () => {
-        if (isFetchingMore) return;
+        if (isFetchingMore || !['Film', 'Serial TV'].includes(activeCategory)) return;
         setIsFetchingMore(true);
 
         try {
-            let typeToFetch: 'movie' | 'series' = 'movie';
-            let nextPage = moviePage;
-
-            if (activeCategory === 'Serial TV') {
-                typeToFetch = 'series';
-                nextPage = seriesPage;
-            } else if (activeCategory === 'Film') {
-                typeToFetch = 'movie';
-                nextPage = moviePage;
-            } else {
-                typeToFetch = moviePage <= seriesPage ? 'movie' : 'series';
-                nextPage = typeToFetch === 'movie' ? moviePage : seriesPage;
-            }
+            const typeToFetch: 'movie' | 'series' = activeCategory === 'Serial TV' ? 'series' : 'movie';
+            const nextPage = typeToFetch === 'movie' ? moviePage : seriesPage;
 
             const newItems = await fetchMoreTmdbContent(typeToFetch, nextPage);
 
@@ -153,8 +143,10 @@ export default function Welcome() {
         }
     };
 
-    // Global Window Scroll Listener for Infinite Scroll
+    // Scroll Listener (Dinonaktifkan di Beranda Utama 'Semua', Aktif di 'Film' & 'Serial TV')
     useEffect(() => {
+        if (!['Film', 'Serial TV'].includes(activeCategory) || showMyListOnly) return;
+
         const handleScroll = () => {
             if (isLoading || isFetchingMore) return;
             const scrollPosition = window.innerHeight + window.scrollY;
@@ -167,7 +159,7 @@ export default function Welcome() {
 
         window.addEventListener('scroll', handleScroll);
         return () => window.removeEventListener('scroll', handleScroll);
-    }, [isLoading, isFetchingMore, activeCategory, moviePage, seriesPage]);
+    }, [isLoading, isFetchingMore, activeCategory, moviePage, seriesPage, showMyListOnly]);
 
     const handleToggleMyList = (id: string) => {
         setMyList((prev) => {
@@ -350,7 +342,7 @@ export default function Welcome() {
                                     {/* Continue Watching Row */}
                                     {continueWatching.length > 0 && (
                                         <MovieRow
-                                            title="Lanjutkan Menonton"
+                                            title={t('row_continue')}
                                             items={continueWatching}
                                             onPlay={handlePlayMedia}
                                             onOpenDetail={handleOpenDetail}
@@ -372,7 +364,7 @@ export default function Welcome() {
 
                                     {/* Trending Now Row */}
                                     <MovieRow
-                                        title="Sedang Populer & Trending (TMDB Live)"
+                                        title={t('row_trending')}
                                         items={trendingMedia}
                                         onPlay={handlePlayMedia}
                                         onOpenDetail={handleOpenDetail}
@@ -382,7 +374,7 @@ export default function Welcome() {
 
                                     {/* Action & Sci-Fi Row */}
                                     <MovieRow
-                                        title="Aksi Seru & Sci-Fi Masa Depan"
+                                        title={t('row_action')}
                                         items={displayAction}
                                         onPlay={handlePlayMedia}
                                         onOpenDetail={handleOpenDetail}
@@ -392,7 +384,7 @@ export default function Welcome() {
 
                                     {/* Horror & Mystery Row */}
                                     <MovieRow
-                                        title="Misteri & Horor Menegangkan"
+                                        title={t('row_horror')}
                                         items={displayHorror}
                                         onPlay={handlePlayMedia}
                                         onOpenDetail={handleOpenDetail}
@@ -401,12 +393,11 @@ export default function Welcome() {
                                     />
                                 </>
                             )}
-
-                            {/* Infinite Scroll Dynamic Loading Indicator */}
-                            {isFetchingMore && (
+                            {/* Infinite Scroll Dynamic Loading Indicator (hanya di kategori Film & Serial TV) */}
+                            {isFetchingMore && ['Film', 'Serial TV'].includes(activeCategory) && (
                                 <div className="flex items-center justify-center gap-3 py-10 text-slate-400 text-xs sm:text-sm font-semibold">
                                     <RefreshCw className="w-5 h-5 text-red-500 animate-spin" />
-                                    <span>Memuat lebih banyak film & serial TV dari TMDB...</span>
+                                    <span>Memuat lebih banyak {activeCategory === 'Film' ? 'Film' : 'Serial TV'} dari TMDB...</span>
                                 </div>
                             )}
                         </main>

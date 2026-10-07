@@ -6,6 +6,8 @@ import AppLayout from '@/layouts/app-layout';
 import AuthLayout from '@/layouts/auth-layout';
 import SettingsLayout from '@/layouts/settings/layout';
 
+import { LanguageProvider } from '@/lib/i18n';
+
 const appName = import.meta.env.VITE_APP_NAME || 'ZTV';
 
 void createInertiaApp({
@@ -25,10 +27,12 @@ void createInertiaApp({
     strictMode: true,
     withApp(app) {
         return (
-            <TooltipProvider delayDuration={0}>
-                {app}
-                <Toaster />
-            </TooltipProvider>
+            <LanguageProvider>
+                <TooltipProvider delayDuration={0}>
+                    {app}
+                    <Toaster />
+                </TooltipProvider>
+            </LanguageProvider>
         );
     },
     progress: {

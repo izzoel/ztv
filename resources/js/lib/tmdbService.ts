@@ -3,7 +3,7 @@
  * Fetches real movies, backdrops, posters, ratings & metadata using TMDB API Read Access Token.
  */
 
-import { MediaItem, Episode } from '@/data/movies';
+import { MediaItem, Episode, FALLBACK_MOVIES } from '@/data/movies';
 
 export const TMDB_READ_TOKEN =
     'eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJhZjNiOGQ3ZTAyZGViZjMzMDJkZTkyNzM2M2Y5MDVhNSIsIm5iZiI6MTc5MTMxNjg4Ny40MjUsInN1YiI6IjZhYzU1Mzk3N2ZhZGRlYzkyZGJiYzM2ZiIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.1QPNbFQVmR2xtf4vAh0Cb0I0XfuEM2uyQo0ksHE0NTs';
@@ -46,7 +46,11 @@ const GENRE_MAP: Record<number, string> = {
 /**
  * Perform authorized request to TMDB API
  */
+
 export async function fetchFromTmdb(endpoint: string, params: Record<string, string> = {}): Promise<any> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
+
     try {
         const url = new URL(`${TMDB_BASE_URL}${endpoint}`);
         url.searchParams.set('language', 'id-ID'); // Preferred Indonesian language metadata
@@ -56,11 +60,13 @@ export async function fetchFromTmdb(endpoint: string, params: Record<string, str
         });
 
         const response = await fetch(url.toString(), {
+            signal: controller.signal,
             headers: {
                 Authorization: `Bearer ${TMDB_READ_TOKEN}`,
                 'Content-Type': 'application/json;charset=utf-8',
             },
         });
+        clearTimeout(timeoutId);
 
         if (!response.ok) {
             throw new Error(`TMDB API Error: ${response.status}`);
@@ -68,6 +74,7 @@ export async function fetchFromTmdb(endpoint: string, params: Record<string, str
 
         return await response.json();
     } catch (error) {
+        clearTimeout(timeoutId);
         console.warn('TMDB Fetch fallback:', error);
         return null;
     }
@@ -226,14 +233,26 @@ export async function fetchLiveTmdbCatalog(): Promise<{
 
     const all = Array.from(allMap.values());
 
+    if (all.length === 0) {
+        return {
+            featured: FALLBACK_MOVIES.slice(0, 3),
+            trending: FALLBACK_MOVIES,
+            top10: FALLBACK_MOVIES.slice(0, 10).map((m, idx) => ({ ...m, top10Rank: idx + 1 })),
+            action: FALLBACK_MOVIES.filter((m) => m.genres.some((g) => g.includes('Aksi'))),
+            horror: FALLBACK_MOVIES.filter((m) => m.genres.some((g) => g.includes('Horor'))),
+            series: FALLBACK_MOVIES.filter((m) => m.type === 'series'),
+            all: FALLBACK_MOVIES,
+        };
+    }
+
     return {
-        featured: featured.length > 0 ? featured : [],
-        trending: trending.length > 0 ? trending : [],
-        top10: top10.length > 0 ? top10 : [],
-        action: actionMovies.length > 0 ? actionMovies : [],
-        horror: horrorMovies.length > 0 ? horrorMovies : [],
-        series: popularTv.length > 0 ? popularTv : [],
-        all: all.length > 0 ? all : [],
+        featured: featured.length > 0 ? featured : FALLBACK_MOVIES.slice(0, 3),
+        trending: trending.length > 0 ? trending : FALLBACK_MOVIES,
+        top10: top10.length > 0 ? top10 : FALLBACK_MOVIES.slice(0, 10).map((m, idx) => ({ ...m, top10Rank: idx + 1 })),
+        action: actionMovies.length > 0 ? actionMovies : FALLBACK_MOVIES,
+        horror: horrorMovies.length > 0 ? horrorMovies : FALLBACK_MOVIES,
+        series: popularTv.length > 0 ? popularTv : FALLBACK_MOVIES.filter((m) => m.type === 'series'),
+        all: all,
     };
 }
 

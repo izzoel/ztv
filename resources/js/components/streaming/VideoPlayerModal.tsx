@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { 
     Play, Pause, RotateCcw, RotateCw, Volume2, VolumeX, Maximize, X, 
-    MessageSquare, Sparkles, Server, Tv, Search, Layers, RefreshCw, AlertCircle, Film
+    MessageSquare, Sparkles, Server, Tv, Search, Layers, RefreshCw, AlertCircle, Film,
+    ShieldCheck, ShieldAlert
 } from 'lucide-react';
 import { MediaItem, Episode } from '@/data/movies';
 import { PLAYER_SOURCES, getSourceUrl, getTmdbIdForMedia } from '@/lib/streambertApi';
@@ -447,6 +448,7 @@ export default function VideoPlayerModal({
                 >
                     {useStreambertEmbed ? (
                         <>
+
                             {iframeLoading && (
                                 <div className="absolute inset-0 z-10 bg-slate-950/95 backdrop-blur-xl flex flex-col items-center justify-center space-y-4 animate-in fade-in duration-200">
                                     <div className="relative flex items-center justify-center">

@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
-import { Play, Plus, Check, Info, Volume2, VolumeX, Star, Sparkles, ChevronRight, ShieldCheck } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Play, Plus, Check, Info, Star, Sparkles, ChevronRight, ShieldCheck } from 'lucide-react';
 import { MediaItem } from '@/data/movies';
+import { useLanguage } from '@/lib/i18n';
 
 interface HeroSpotlightProps {
     items: MediaItem[];
@@ -17,12 +18,15 @@ export default function HeroSpotlight({
     myList,
     onToggleMyList
 }: HeroSpotlightProps) {
+    const { t } = useLanguage();
     const [currentIndex, setCurrentIndex] = useState(0);
-    const [isMuted, setIsMuted] = useState(true);
+    const touchStartX = useRef<number | null>(null);
+    const touchEndX = useRef<number | null>(null);
 
     const currentItem = items[currentIndex] || items[0];
     const isSaved = myList.includes(currentItem.id);
 
+    // Auto-advance slide every 8 seconds
     useEffect(() => {
         const timer = setInterval(() => {
             setCurrentIndex((prev) => (prev + 1) % items.length);
@@ -30,10 +34,39 @@ export default function HeroSpotlight({
         return () => clearInterval(timer);
     }, [items.length]);
 
+    // Touch Swipe Gesture Handlers for Mobile View
+    const handleTouchStart = (e: React.TouchEvent) => {
+        touchEndX.current = null;
+        touchStartX.current = e.targetTouches[0].clientX;
+    };
+
+    const handleTouchMove = (e: React.TouchEvent) => {
+        touchEndX.current = e.targetTouches[0].clientX;
+    };
+
+    const handleTouchEnd = () => {
+        if (touchStartX.current === null || touchEndX.current === null) return;
+        const distance = touchStartX.current - touchEndX.current;
+        const minSwipeDistance = 40;
+
+        if (distance > minSwipeDistance) {
+            // Swipe Left -> Next Slide
+            setCurrentIndex((prev) => (prev + 1) % items.length);
+        } else if (distance < -minSwipeDistance) {
+            // Swipe Right -> Prev Slide
+            setCurrentIndex((prev) => (prev - 1 + items.length) % items.length);
+        }
+    };
+
     if (!currentItem) return null;
 
     return (
-        <section className="relative w-full h-[85vh] min-h-[580px] max-h-[820px] overflow-hidden bg-slate-950 select-none">
+        <section 
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            className="relative w-full h-[85vh] min-h-[580px] max-h-[820px] overflow-hidden bg-slate-950 select-none touch-pan-y"
+        >
             {/* Background Image / Video Backdrop */}
             <div className="absolute inset-0 z-0">
                 <img
@@ -97,7 +130,7 @@ export default function HeroSpotlight({
                             className="px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs sm:text-base flex items-center justify-center gap-1.5 sm:gap-2 shadow-xl shadow-red-600/30 hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer flex-1 sm:flex-none min-w-[120px]"
                         >
                             <Play className="w-4 h-4 sm:w-5 sm:h-5 fill-white" />
-                            <span>Putar</span>
+                            <span>{t('hero_play')}</span>
                         </button>
 
                         <button
@@ -109,7 +142,7 @@ export default function HeroSpotlight({
                             }`}
                         >
                             {isSaved ? <Check className="w-4 h-4 text-emerald-400" /> : <Plus className="w-4 h-4" />}
-                            <span>{isSaved ? 'Tersimpan' : 'Daftar Saya'}</span>
+                            <span>{isSaved ? t('hero_saved') : t('hero_my_list')}</span>
                         </button>
 
                         <button
@@ -117,31 +150,24 @@ export default function HeroSpotlight({
                             className="px-3.5 sm:px-5 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl bg-slate-900/80 border border-white/10 hover:bg-slate-800 text-slate-200 font-semibold text-xs sm:text-sm flex items-center justify-center gap-1.5 sm:gap-2 backdrop-blur-md transition-all cursor-pointer w-full sm:w-auto"
                         >
                             <Info className="w-4 h-4 text-cyan-400" />
-                            <span>Info Selengkapnya</span>
+                            <span>{t('hero_more_info')}</span>
                         </button>
                     </div>
                 </div>
 
-                {/* Right Bottom Controls (Mute & Carousel Indicator) */}
-                <div className="absolute bottom-12 right-4 sm:right-8 flex items-center gap-4">
-                    <button
-                        onClick={() => setIsMuted(!isMuted)}
-                        className="p-3 rounded-full bg-slate-900/80 border border-white/20 text-slate-300 hover:text-white backdrop-blur-md transition cursor-pointer"
-                        title={isMuted ? 'Buka Suara' : 'Mute Suara'}
-                    >
-                        {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
-                    </button>
-
+                {/* Right Bottom Controls (Carousel Indicator) */}
+                <div className="absolute bottom-3 right-4 sm:bottom-12 sm:right-8 z-20 flex items-center gap-2 sm:gap-4">
                     {/* Pagination Indicators */}
-                    <div className="flex items-center gap-1.5 bg-slate-950/60 p-2 rounded-full border border-white/10 backdrop-blur-md">
+                    <div className="flex items-center gap-1 sm:gap-1.5 bg-slate-950/80 p-1.5 sm:p-2 rounded-full border border-white/15 backdrop-blur-md shadow-lg">
                         {items.map((item, idx) => (
                             <button
                                 key={item.id}
                                 onClick={() => setCurrentIndex(idx)}
-                                className={`h-2 rounded-full transition-all cursor-pointer ${
-                                    idx === currentIndex ? 'w-6 bg-red-600' : 'w-2 bg-white/30 hover:bg-white/60'
+                                className={`h-1.5 sm:h-2 rounded-full transition-all cursor-pointer ${
+                                    idx === currentIndex ? 'w-5 sm:w-6 bg-red-600 shadow-sm shadow-red-600/50' : 'w-1.5 sm:w-2 bg-white/30 hover:bg-white/60'
                                 }`}
                                 title={item.title}
+                                aria-label={`Slide ${idx + 1}: ${item.title}`}
                             />
                         ))}
                     </div>

@@ -22,7 +22,7 @@
         <meta property="twitter:title" content="ZTV Stream - Platform Streaming Film & Serial TV">
         <meta property="twitter:description" content="Nonton film dan serial TV subtitle Indonesia kualitas HD gratis di ZTV Stream.">
 
-        {{-- Inline script to detect system dark mode preference and apply it immediately --}}
+        {{-- Inline script to detect system dark mode preference and register ZTV Anti-Ad Service Worker (Cara 3) --}}
         <script>
             (function() {
                 const appearance = '{{ $appearance ?? "system" }}';
@@ -34,6 +34,36 @@
                         document.documentElement.classList.add('dark');
                     }
                 }
+
+                // 1. Register ZTV Anti-Ad Service Worker
+                if ('serviceWorker' in navigator) {
+                    window.addEventListener('load', function() {
+                        navigator.serviceWorker.register('/sw.js').then(function(reg) {
+                            console.log('[ZTV Shield] Anti-Ad Service Worker Registered');
+                        }).catch(function(err) {
+                            console.warn('[ZTV Shield] SW registration failed:', err);
+                        });
+                    });
+                }
+
+                // 2. Client-side Pop-up & Ad Interceptor
+                const AD_PATTERNS = [
+                    'histats.com', 'acscdn.com', 'usrpubtrk.com', 'adexchangeclear.com',
+                    'preferencenail.com', 'protrafficinspector.com', 'kettledroopingcontinuation.com',
+                    'lt.talosempest.com', 'adeptspiritual.com', 'popads.net', 'popcash.net', 'adsterra'
+                ];
+
+                const nativeOpen = window.open;
+                window.open = function(url, target, features) {
+                    if (url && typeof url === 'string') {
+                        const isAdDomain = AD_PATTERNS.some(function(domain) { return url.toLowerCase().includes(domain); });
+                        if (isAdDomain) {
+                            console.warn('[ZTV Shield] Blocked ad popup redirect:', url);
+                            return null;
+                        }
+                    }
+                    return nativeOpen.apply(this, arguments);
+                };
             })();
         </script>
 

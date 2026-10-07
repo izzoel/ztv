@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Search, Bell, Bookmark, User, Film, Tv, Sparkles, LogOut, Settings, ChevronDown, X, CheckCheck, Trash2, Clock } from 'lucide-react';
+import { Search, Bell, Bookmark, User, Film, Tv, Sparkles, LogOut, Settings, ChevronDown, X, CheckCheck, Trash2, Clock, Globe } from 'lucide-react';
 import { Link, usePage } from '@inertiajs/react';
 import { MediaItem, ALL_MEDIA } from '@/data/movies';
+import { useLanguage, Language } from '@/lib/i18n';
 
 interface NavbarProps {
     activeCategory: string;
@@ -35,6 +36,7 @@ export default function Navbar({
     onToggleMyListOnly,
     catalogMedia = []
 }: NavbarProps) {
+    const { language, setLanguage, t } = useLanguage();
     const { auth } = usePage().props as any;
     const [isScrolled, setIsScrolled] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -215,7 +217,7 @@ export default function Navbar({
                                     : 'text-slate-300 hover:text-white hover:bg-white/10'
                             }`}
                         >
-                            Beranda
+                            {t('nav_home')}
                         </button>
                         <button
                             onClick={() => {
@@ -229,7 +231,7 @@ export default function Navbar({
                             }`}
                         >
                             <Film className="w-3.5 h-3.5" />
-                            Film
+                            {t('nav_movies')}
                         </button>
                         <button
                             onClick={() => {
@@ -243,7 +245,7 @@ export default function Navbar({
                             }`}
                         >
                             <Tv className="w-3.5 h-3.5" />
-                            Serial TV
+                            {t('nav_series')}
                         </button>
                         <button
                             onClick={() => onToggleMyListOnly(true)}
@@ -254,7 +256,7 @@ export default function Navbar({
                             }`}
                         >
                             <Bookmark className="w-3.5 h-3.5" />
-                            Daftar Saya
+                            {t('nav_my_list')}
                             {myListCount > 0 && (
                                 <span className="ml-1 px-1.5 py-0.2 text-[10px] bg-red-600 text-white rounded-full font-bold">
                                     {myListCount}
@@ -264,8 +266,17 @@ export default function Navbar({
                     </nav>
                 </div>
 
-                {/* Right side: Search, Notifications, Profile */}
-                <div className="flex items-center gap-3">
+                {/* Right side: Search, Notifications, Language, Profile */}
+                <div className="flex items-center gap-2 sm:gap-3">
+                    {/* Language Switcher Pill */}
+                    <button
+                        onClick={() => setLanguage(language === 'id' ? 'en' : 'id')}
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-slate-900/90 hover:bg-slate-800 border border-white/15 text-xs text-white transition-all cursor-pointer shadow-md active:scale-95 shrink-0"
+                        title={language === 'id' ? 'Switch to English' : 'Ganti ke Bahasa Indonesia'}
+                    >
+                        <Globe className="w-3.5 h-3.5 text-red-400" />
+                        <span className="font-bold uppercase text-[11px] tracking-wider">{language === 'id' ? 'ID' : 'EN'}</span>
+                    </button>
                     {/* Search Bar */}
                     <div className="relative">
                         {isSearchOpen ? (
@@ -273,7 +284,7 @@ export default function Navbar({
                                 <Search className="w-4 h-4 text-slate-400 mr-2 shrink-0" />
                                 <input
                                     type="text"
-                                    placeholder="Cari film, serial, aktor..."
+                                    placeholder={t('nav_search_placeholder')}
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                     autoFocus
