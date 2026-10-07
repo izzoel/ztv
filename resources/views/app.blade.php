@@ -4,6 +4,24 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
 
+        <!-- Primary HTML & Link Preview Meta Tags -->
+        <title>ZTV Stream - Platform Streaming Film & Serial TV</title>
+        <meta name="title" content="ZTV Stream - Platform Streaming Film & Serial TV">
+        <meta name="description" content="Nonton film dan serial TV subtitle Indonesia kualitas HD gratis di ZTV Stream.">
+
+        <!-- Open Graph / WhatsApp / Telegram / Facebook Preview -->
+        <meta property="og:type" content="website">
+        <meta property="og:url" content="https://cinema.zetware.id/">
+        <meta property="og:title" content="ZTV Stream - Platform Streaming Film & Serial TV">
+        <meta property="og:description" content="Nonton film dan serial TV subtitle Indonesia kualitas HD gratis di ZTV Stream.">
+        <meta property="og:site_name" content="ZTV Stream">
+
+        <!-- Twitter Preview -->
+        <meta property="twitter:card" content="summary_large_image">
+        <meta property="twitter:url" content="https://cinema.zetware.id/">
+        <meta property="twitter:title" content="ZTV Stream - Platform Streaming Film & Serial TV">
+        <meta property="twitter:description" content="Nonton film dan serial TV subtitle Indonesia kualitas HD gratis di ZTV Stream.">
+
         {{-- Inline script to detect system dark mode preference and apply it immediately --}}
         <script>
             (function() {
@@ -38,9 +56,7 @@
 
         @viteReactRefresh
         @vite(['resources/css/app.css', 'resources/js/app.tsx', "resources/js/pages/{$page['component']}.tsx"])
-        <x-inertia::head>
-            <title>{{ config('app.name', 'ZTV') }}</title>
-        </x-inertia::head>
+        <x-inertia::head />
     </head>
     <body class="font-sans antialiased">
         <x-inertia::app />
